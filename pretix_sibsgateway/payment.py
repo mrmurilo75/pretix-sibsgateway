@@ -128,81 +128,8 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
         d.move_to_end('_enabled', False)
         return d
 
-    def get_connect_url(self, request):
-        request.session['payment_paypal_oauth_event'] = request.event.pk
-
-        self.init_api()
-        return Tokeninfo.authorize_url({'scope': 'openid profile email'})
-
-    def settings_content_render(self, request):
-        settings_content = ""
-        if self.settings.connect_client_id and not self.settings.secret:
-            # Use PayPal connect
-            if not self.settings.connect_user_id:
-                settings_content = (
-                    "<p>{}</p>"
-                    "<a href='{}' class='btn btn-primary btn-lg'>{}</a>"
-                ).format(
-                    _('To accept payments via PayPal, you will need an account at PayPal. By clicking on the '
-                      'following button, you can either create a new PayPal account connect pretix to an existing '
-                      'one.'),
-                    self.get_connect_url(request),
-                    _('Connect with {icon} PayPal').format(icon='<i class="fa fa-paypal"></i>')
-                )
-            else:
-                settings_content = (
-                    "<button formaction='{}' class='btn btn-danger'>{}</button>"
-                ).format(
-                    reverse('plugins:paypal:oauth.disconnect', kwargs={
-                        'organizer': self.event.organizer.slug,
-                        'event': self.event.slug,
-                    }),
-                    _('Disconnect from PayPal')
-                )
-        else:
-            settings_content = "<div class='alert alert-info'>%s<br /><code>%s</code></div>" % (
-                _('Please configure a PayPal Webhook to the following endpoint in order to automatically cancel orders '
-                  'when payments are refunded externally.'),
-                build_global_uri('plugins:paypal:webhook')
-            )
-
-        if self.event.currency not in SUPPORTED_CURRENCIES:
-            settings_content += (
-                '<br><br><div class="alert alert-warning">%s '
-                '<a href="https://developer.paypal.com/docs/api/reference/currency-codes/">%s</a>'
-                '</div>'
-            ) % (
-                _("PayPal does not process payments in your event's currency."),
-                _("Please check this PayPal page for a complete list of supported currencies.")
-            )
-
-        if self.event.currency in LOCAL_ONLY_CURRENCIES:
-            settings_content += '<br><br><div class="alert alert-warning">%s''</div>' % (
-                _("Your event's currency is supported by PayPal as a payment and balance currency for in-country "
-                  "accounts only. This means, that the receiving as well as the sending PayPal account must have been "
-                  "created in the same country and use the same currency. Out of country accounts will not be able to "
-                  "send any payments.")
-            )
-
-        return settings_content
-
     def is_allowed(self, request: HttpRequest, total: Decimal = None) -> bool:
         return super().is_allowed(request, total) and self.event.currency in SUPPORTED_CURRENCIES
-
-    def init_api(self):
-        if self.settings.connect_client_id and not self.settings.secret:
-            paypalrestsdk.set_config(
-                mode="sandbox" if "sandbox" in self.settings.connect_endpoint else 'live',
-                client_id=self.settings.connect_client_id,
-                client_secret=self.settings.connect_secret_key,
-                openid_client_id=self.settings.connect_client_id,
-                openid_client_secret=self.settings.connect_secret_key,
-                openid_redirect_uri=urllib.parse.quote(build_global_uri('plugins:paypal:oauth.return')))
-        else:
-            paypalrestsdk.set_config(
-                mode="sandbox" if "sandbox" in self.settings.get('endpoint') else 'live',
-                client_id=self.settings.get('client_id'),
-                client_secret=self.settings.get('secret'))
 
     def payment_is_valid_session(self, request):
         return (request.session.get('payment_paypal_id', '') != ''
@@ -326,27 +253,6 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
     @property
     def abort_pending_allowed(self):
         return False
-
-    def _create_payment(self, request, payment):
-        if payment.create():
-            if payment.state not in ('created', 'approved', 'pending'):
-                messages.error(request, _('We had trouble communicating with PayPal'))
-                logger.error('Invalid payment state: ' + str(payment))
-                return
-            request.session['payment_paypal_id'] = payment.id
-            for link in payment.links:
-                if link.method == "REDIRECT" and link.rel == "approval_url":
-                    if request.session.get('iframe_session', False):
-                        signer = signing.Signer(salt='safe-redirect')
-                        return (
-                            build_absolute_uri(request.event, 'plugins:paypal:redirect') + '?url=' +
-                            urllib.parse.quote(signer.sign(link.href))
-                        )
-                    else:
-                        return str(link.href)
-        else:
-            messages.error(request, _('We had trouble communicating with PayPal'))
-            logger.error('Error on creating payment: ' + str(payment.error))
 
     def checkout_confirm_render(self, request) -> str:
         """
