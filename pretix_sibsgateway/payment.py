@@ -137,7 +137,7 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
                 and request.session.get('payment_paypal_payer', '') != '')
 
     def payment_form_render(self, request) -> str:
-        template = get_template('templates/pretix_mbway/checkout_payment_form.html')
+        template = get_template('pretix_mbway/checkout_payment_form.html')
         ctx = {}
         return template.render(ctx)
 
@@ -156,7 +156,7 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
         Returns the HTML that should be displayed when the user selected this provider
         on the 'confirm order' page.
         """
-        template = get_template('templates/pretix_mbway/checkout_payment_confirm.html')
+        template = get_template('pretix_mbway/checkout_payment_confirm.html')
         # ctx = {'request': request, 'event': self.event, 'settings': self.settings}
         ctx = {}
         return template.render(ctx)
@@ -187,7 +187,7 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
             return False
 
     def payment_pending_render(self, request, payment) -> str:
-        template = get_template('templates/pretix_mbway/pending.html')
+        template = get_template('pretix_mbway/pending.html')
         ctx = {}
         return template.render(ctx)
 
@@ -206,7 +206,7 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
     #     }
 
     def payment_control_render(self, request: HttpRequest, payment: OrderPayment):
-        template = get_template('templates/pretix_mbway/control.html')
+        template = get_template('pretix_mbway/control.html')
 
         id_order = self.get_order_id(payment)
         amount = self.format_price(payment.amount)
