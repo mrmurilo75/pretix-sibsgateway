@@ -85,36 +85,21 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
             ('gateway_key',
              forms.CharField(
                  label=_('Gateway Key'),
+                 required=True,
                  help_text=_('<a target="_blank" rel="noopener" href="{docs_url}">{text}</a>').format(
-                     text=_('Click here for a tutorial on how to obtain the required keys'),
+                     text=_('Click here for more information'),
                      docs_url='https://ifthenpay.com/'
                  )
              )),
-            # ('mb_reference_entity',
-            #  forms.CharField(
-            #      label=_('Multibanco Reference Entity'),
-            #      required=False,
-            #  )),
-            # ('mb_reference_subentity',
-            #  forms.CharField(
-            #      label=_('Multibanco Reference Sub-Entity'),
-            #      required=False,
-            #  )),
             ('mb_way_key',
              forms.CharField(
                  label=_('MB WAY Key'),
-                 required=False,
+                 required=True,
+                 help_text=_('<a target="_blank" rel="noopener" href="{docs_url}">{text}</a>').format(
+                     text=_('Click here for more information'),
+                     docs_url='https://ifthenpay.com/'
+                 )
              )),
-            # ('payshop_key',
-            #  forms.CharField(
-            #      label=_('PayShop Key'),
-            #      required=False,
-            #  )),
-            # ('ccard_key',
-            #  forms.CharField(
-            #      label=_('CCard Key'),
-            #      required=False,
-            #  )),
             ('environment',
              forms.ChoiceField(
                  label=_('Environment'),
