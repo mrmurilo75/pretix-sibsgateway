@@ -136,119 +136,15 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
                 and request.session.get('payment_paypal_payer', '') != '')
 
     def payment_form_render(self, request) -> str:
-        template = get_template('pretixplugins/paypal/checkout_payment_form.html')
-        ctx = {'request': request, 'event': self.event, 'settings': self.settings}
+        template = get_template('templates/pretix_mbway/checkout_payment_form.html')
+        ctx = {}
         return template.render(ctx)
 
     def checkout_prepare(self, request, cart):
-        self.init_api()
-        kwargs = {}
-        if request.resolver_match and 'cart_namespace' in request.resolver_match.kwargs:
-            kwargs['cart_namespace'] = request.resolver_match.kwargs['cart_namespace']
+        return super().checkout_prepare()
 
-        try:
-            if request.event.settings.payment_paypal_connect_user_id:
-                try:
-                    tokeninfo = Tokeninfo.create_with_refresh_token(request.event.settings.payment_paypal_connect_refresh_token)
-                except BadRequest as ex:
-                    ex = json.loads(ex.content)
-                    messages.error(request, '{}: {} ({})'.format(
-                        _('We had trouble communicating with PayPal'),
-                        ex['error_description'],
-                        ex['correlation_id'])
-                    )
-                    return
-
-                # Even if the token has been refreshed, calling userinfo() can fail. In this case we just don't
-                # get the userinfo again and use the payment_paypal_connect_user_id that we already have on file
-                try:
-                    userinfo = tokeninfo.userinfo()
-                    request.event.settings.payment_paypal_connect_user_id = userinfo.email
-                except UnauthorizedAccess:
-                    pass
-
-                payee = {
-                    "email": request.event.settings.payment_paypal_connect_user_id,
-                    # If PayPal ever offers a good way to get the MerchantID via the Identifity API,
-                    # we should use it instead of the merchant's eMail-address
-                    # "merchant_id": request.event.settings.payment_paypal_connect_user_id,
-                }
-            else:
-                payee = {}
-
-            payment = paypalrestsdk.Payment({
-                'header': {'PayPal-Partner-Attribution-Id': 'ramiioSoftwareentwicklung_SP'},
-                'intent': 'sale',
-                'payer': {
-                    "payment_method": "paypal",
-                },
-                "redirect_urls": {
-                    "return_url": build_absolute_uri(request.event, 'plugins:paypal:return', kwargs=kwargs),
-                    "cancel_url": build_absolute_uri(request.event, 'plugins:paypal:abort', kwargs=kwargs),
-                },
-                "transactions": [
-                    {
-                        "item_list": {
-                            "items": [
-                                {
-                                    "name": '{prefix}{orderstring}{postfix}'.format(
-                                        prefix='{} '.format(self.settings.prefix) if self.settings.prefix else '',
-                                        orderstring=__('Order for %s') % str(request.event),
-                                        postfix=' {}'.format(self.settings.postfix) if self.settings.postfix else ''
-                                    ),
-                                    "quantity": 1,
-                                    "price": self.format_price(cart['total']),
-                                    "currency": request.event.currency
-                                }
-                            ]
-                        },
-                        "amount": {
-                            "currency": request.event.currency,
-                            "total": self.format_price(cart['total'])
-                        },
-                        "description": __('Event tickets for {event}').format(event=request.event.name),
-                        "payee": payee,
-                        "custom": '{prefix}{slug}{postfix}'.format(
-                            prefix='{} '.format(self.settings.prefix) if self.settings.prefix else '',
-                            slug=request.event.slug.upper(),
-                            postfix=' {}'.format(self.settings.postfix) if self.settings.postfix else ''
-                        )
-                    }
-                ]
-            })
-            request.session['payment_paypal_payment'] = None
-            return self._create_payment(request, payment)
-        except paypalrestsdk.exceptions.ConnectionError as e:
-            messages.error(request, _('We had trouble communicating with PayPal'))
-            logger.exception('Error on creating payment: ' + str(e))
-
-    def format_price(self, value):
-        return str(round_decimal(value, self.event.currency, {
-            # PayPal behaves differently than Stripe in deciding what currencies have decimal places
-            # Source https://developer.paypal.com/docs/classic/api/currency_codes/
-            'HUF': 0,
-            'JPY': 0,
-            'MYR': 0,
-            'TWD': 0,
-            # However, CLPs are not listed there while PayPal requires us not to send decimal places there. WTF.
-            'CLP': 0,
-            # Let's just guess that the ones listed here are 0-based as well
-            # https://developers.braintreepayments.com/reference/general/currencies
-            'BIF': 0,
-            'DJF': 0,
-            'GNF': 0,
-            'KMF': 0,
-            'KRW': 0,
-            'LAK': 0,
-            'PYG': 0,
-            'RWF': 0,
-            'UGX': 0,
-            'VND': 0,
-            'VUV': 0,
-            'XAF': 0,
-            'XOF': 0,
-            'XPF': 0,
-        }))
+    def format_price(self, value: float):
+        return f'{value: .2f}'
 
     @property
     def abort_pending_allowed(self):
@@ -259,8 +155,9 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
         Returns the HTML that should be displayed when the user selected this provider
         on the 'confirm order' page.
         """
-        template = get_template('pretixplugins/paypal/checkout_payment_confirm.html')
-        ctx = {'request': request, 'event': self.event, 'settings': self.settings}
+        template = get_template('templates/pretix_mbway/checkout_payment_confirm.html')
+        # ctx = {'request': request, 'event': self.event, 'settings': self.settings}
+        ctx = {}
         return template.render(ctx)
 
     def execute_payment(self, request: HttpRequest, payment: OrderPayment):
@@ -364,15 +261,8 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
         return None
 
     def payment_pending_render(self, request, payment) -> str:
-        retry = True
-        try:
-            if payment.info and payment.info_data['state'] == 'pending':
-                retry = False
-        except KeyError:
-            pass
-        template = get_template('pretixplugins/paypal/pending.html')
-        ctx = {'request': request, 'event': self.event, 'settings': self.settings,
-               'retry': retry, 'order': payment.order}
+        template = get_template('templates/pretix_mbway/pending.html')
+        ctx = {}
         return template.render(ctx)
 
     def matching_id(self, payment: OrderPayment):
@@ -398,29 +288,19 @@ class MBWAYViaIfThenPay(BasePaymentProvider):
         }
 
     def payment_control_render(self, request: HttpRequest, payment: OrderPayment):
-        template = get_template('pretixplugins/paypal/control.html')
-        sale_id = None
-        for trans in payment.info_data.get('transactions', []):
-            for res in trans.get('related_resources', []):
-                if 'sale' in res and 'id' in res['sale']:
-                    sale_id = res['sale']['id']
-        ctx = {'request': request, 'event': self.event, 'settings': self.settings,
-               'payment_info': payment.info_data, 'order': payment.order, 'sale_id': sale_id}
+        template = get_template('templates/pretix_mbway/control.html')
+
+        id_order = self.get_order_id(payment)
+        amount = self.format_price(payment.amount)
+        description = self.settings.get('description', '')
+        language = request.headers.get('locale', 'en')
+        status = payment.state
+
+        ctx = {'id_order': id_order, 'amount': amount, 'description': description, 'language': language, 'status': status}
         return template.render(ctx)
 
     def payment_control_render_short(self, payment: OrderPayment) -> str:
-        return payment.info_data.get('payer', {}).get('payer_info', {}).get('email', '')
-
-    def payment_partial_refund_supported(self, payment: OrderPayment):
-        # Paypal refunds are possible for 180 days after purchase:
-        # https://www.paypal.com/lc/smarthelp/article/how-do-i-issue-a-refund-faq780#:~:text=Refund%20after%20180%20days%20of,PayPal%20balance%20of%20the%20recipient.
-        return (now() - payment.payment_date).days <= 180
-
-    def payment_refund_supported(self, payment: OrderPayment):
-        self.payment_partial_refund_supported(payment)
-
-    def execute_refund(self, refund: OrderRefund):
-        self.init_api()
+        return self.get_order_id(payment)
 
         try:
             sale = None
