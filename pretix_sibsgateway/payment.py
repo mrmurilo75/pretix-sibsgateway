@@ -58,12 +58,12 @@ from pretix.helpers.urls import build_absolute_uri as build_global_uri
 from pretix.multidomain.urlreverse import build_absolute_uri
 from pretix.plugins.paypal.models import ReferencedPayPalObject
 
-logger = logging.getLogger('pretix.plugins.ifthenpay')
+logger = logging.getLogger('pretix.plugins.mbway_via_ifthenpay')
 
 SUPPORTED_CURRENCIES = ['EUR']
 
 
-class IfThenPay(BasePaymentProvider):
+class MBWAYViaIfThenPay(BasePaymentProvider):
     identifier = 'mbway_via_ifthenpay'
     verbose_name = _('MBWAY via IfThenPay')
     payment_form_fields = OrderedDict([
@@ -90,34 +90,34 @@ class IfThenPay(BasePaymentProvider):
                      docs_url='https://ifthenpay.com/'
                  )
              )),
-            ('mb_reference_entity',
-             forms.CharField(
-                 label=_('Multibanco Reference Entity'),
-                 required=False,
-             )),
-            ('mb_reference_subentity',
-             forms.CharField(
-                 label=_('Multibanco Reference Sub-Entity'),
-                 required=False,
-             )),
+            # ('mb_reference_entity',
+            #  forms.CharField(
+            #      label=_('Multibanco Reference Entity'),
+            #      required=False,
+            #  )),
+            # ('mb_reference_subentity',
+            #  forms.CharField(
+            #      label=_('Multibanco Reference Sub-Entity'),
+            #      required=False,
+            #  )),
             ('mb_way_key',
              forms.CharField(
                  label=_('MB WAY Key'),
                  required=False,
              )),
-            ('payshop_key',
-             forms.CharField(
-                 label=_('PayShop Key'),
-                 required=False,
-             )),
-            ('ccard_key',
-             forms.CharField(
-                 label=_('CCard Key'),
-                 required=False,
-             )),
+            # ('payshop_key',
+            #  forms.CharField(
+            #      label=_('PayShop Key'),
+            #      required=False,
+            #  )),
+            # ('ccard_key',
+            #  forms.CharField(
+            #      label=_('CCard Key'),
+            #      required=False,
+            #  )),
             ('environment',
              forms.ChoiceField(
-                 label=_('Enviroment'),
+                 label=_('Environment'),
                  initial='live',
                  choices=(
                      ('live', 'Live'),
